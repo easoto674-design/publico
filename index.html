@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Página Web Genérica</title>
+    <title>Página Web Genérica - Firebase Auth Configurado</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -27,7 +27,7 @@
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased transition-colors duration-300">
 
     <!-- Header & Navigation -->
-    <header class="fixed w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-50 border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <header class="fixed w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-40 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-3">
@@ -50,6 +50,16 @@
                         <i id="theme-toggle-dark-icon" class="fas fa-moon hidden text-lg"></i>
                         <i id="theme-toggle-light-icon" class="fas fa-sun hidden text-lg"></i>
                     </button>
+                    
+                    <!-- Botones dinámicos según el estado de autenticación -->
+                    <button id="btn-open-login" onclick="toggleModal('login-modal')" class="text-slate-700 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-500 font-medium text-sm transition-colors px-3 py-2">
+                        Iniciar Sesión
+                    </button>
+                    <button id="btn-logout" onclick="logoutFirebase()" class="hidden text-red-600 dark:text-red-400 hover:text-red-700 font-medium text-sm transition-colors px-3 py-2">
+                        Cerrar Sesión
+                    </button>
+                    <span id="user-display" class="hidden text-xs font-semibold bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 px-3 py-1.5 rounded-full border border-brand-200 dark:border-brand-800"></span>
+                    
                     <a href="#contacto" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all">Empezar</a>
                 </div>
 
@@ -72,8 +82,72 @@
             <a href="#servicios" class="block px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">Servicios</a>
             <a href="#nosotros" class="block px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">Nosotros</a>
             <a href="#contacto" class="block px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">Contacto</a>
+            <button id="btn-open-login-mobile" onclick="toggleModal('login-modal'); document.getElementById('mobile-menu').classList.add('hidden');" class="w-full text-left block px-3 py-2 rounded-md bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-medium">
+                <i class="fas fa-sign-in-alt mr-2"></i> Iniciar Sesión
+            </button>
+            <button id="btn-logout-mobile" onclick="logoutFirebase()" class="hidden w-full text-left block px-3 py-2 rounded-md bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium">
+                <i class="fas fa-sign-out-alt mr-2"></i> Cerrar Sesión
+            </button>
         </div>
     </header>
+
+    <!-- Modal de Autenticación (Iniciar Sesión / Registro) -->
+    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden transition-opacity">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 relative m-4">
+            <!-- Botón Cerrar -->
+            <button onclick="toggleModal('login-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-2 focus:outline-none">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- Encabezado Modal -->
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-brand-600 text-white rounded-2xl flex items-center justify-center font-bold text-2xl mx-auto mb-3 shadow-lg">
+                    G
+                </div>
+                <h3 id="modal-title" class="text-2xl font-bold text-slate-900 dark:text-white">¡Bienvenido de nuevo!</h3>
+                <p id="modal-subtitle" class="text-slate-500 dark:text-slate-400 text-sm mt-1">Ingresa con tus credenciales de Firebase Auth.</p>
+            </div>
+
+            <!-- Contenedor de Alertas / Mensajes -->
+            <div id="auth-error" class="hidden mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs text-center font-medium"></div>
+            <div id="auth-success" class="hidden mb-4 p-3 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 text-xs text-center font-medium"></div>
+
+            <!-- Formulario de Autenticación -->
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Correo Electrónico</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="fas fa-envelope"></i>
+                        </span>
+                        <input id="auth-email" type="email" required placeholder="correo@ejemplo.com" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm transition-colors">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contraseña</label>
+                        <button type="button" onclick="resetPasswordFirebase()" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">¿Olvidaste tu contraseña?</button>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input id="auth-password" type="password" required minlength="6" placeholder="••••••••" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none text-sm transition-colors">
+                    </div>
+                </div>
+
+                <button id="btn-auth-submit" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-brand-500/30 text-sm flex items-center justify-center">
+                    <span>Iniciar Sesión</span>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 pt-4">
+                <span id="toggle-auth-text">¿No tienes una cuenta?</span> 
+                <button type="button" onclick="switchAuthMode()" id="btn-toggle-mode" class="text-brand-600 dark:text-brand-400 font-semibold hover:underline">Regístrate gratis</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Hero Section -->
     <section id="inicio" class="pt-32 pb-20 md:pt-40 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -81,15 +155,15 @@
             Innovación & Desarrollo
         </span>
         <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-tight">
-            Soluciones digitales modernas para hacer crecer tu proyecto
+            Soluciones digitales modernas con Firebase Auth
         </h1>
         <p class="mt-6 text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Creamos experiencias web optimizadas, elegantes y responsivas diseñadas para potenciar tu presencia en línea desde el primer día.
+            Creamos experiencias web optimizadas con autenticación mediante correo y contraseña totalmente integradas con Firebase.
         </p>
         <div class="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-            <a href="#contacto" class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-semibold shadow-lg shadow-brand-500/25 transition-all text-center">
-                Comenzar Ahora
-            </a>
+            <button onclick="toggleModal('login-modal')" class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-semibold shadow-lg shadow-brand-500/25 transition-all text-center">
+                Iniciar Sesión
+            </button>
             <a href="#servicios" class="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 px-8 py-3.5 rounded-xl font-semibold transition-all text-center">
                 Saber más
             </a>
@@ -105,7 +179,6 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <!-- Card 1 -->
                 <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 hover:shadow-md transition-shadow">
                     <div class="w-12 h-12 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-500 rounded-xl flex items-center justify-center text-xl mb-6">
                         <i class="fas fa-laptop-code"></i>
@@ -116,7 +189,6 @@
                     </p>
                 </div>
 
-                <!-- Card 2 -->
                 <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 hover:shadow-md transition-shadow">
                     <div class="w-12 h-12 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-500 rounded-xl flex items-center justify-center text-xl mb-6">
                         <i class="fas fa-rocket"></i>
@@ -127,14 +199,13 @@
                     </p>
                 </div>
 
-                <!-- Card 3 -->
                 <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 hover:shadow-md transition-shadow">
                     <div class="w-12 h-12 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-500 rounded-xl flex items-center justify-center text-xl mb-6">
                         <i class="fas fa-shield-halved"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">Seguridad & Soporte</h3>
+                    <h3 class="text-xl font-bold mb-3">Seguridad & Firebase</h3>
                     <p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                        Mantenimiento continuo y protocolos de seguridad actualizados para proteger tu plataforma.
+                        Mantenimiento continuo y protocolos de seguridad de Firebase para proteger las credenciales de tus usuarios.
                     </p>
                 </div>
             </div>
@@ -222,7 +293,7 @@
         </div>
     </footer>
 
-    <!-- Script for Dark Mode & Mobile Menu -->
+    <!-- Script Tema Claro/Oscuro y Navegación Móvil -->
     <script>
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
         const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
@@ -260,13 +331,204 @@
         themeToggleBtn.addEventListener('click', toggleTheme);
         themeToggleBtnMobile.addEventListener('click', toggleTheme);
 
-        // Mobile menu toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
 
         mobileMenuBtn.addEventListener('click', () => {
             mobileMenu.classList.toggle('hidden');
         });
+
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.toggle('hidden');
+            hideMessages();
+        }
+    </script>
+
+    <!-- Firebase Web SDK v10 (Modulo ES6) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged,
+            sendPasswordResetEmail
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        // Tu configuración exacta de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDcnyF_5A-PeSmL2eCSvLVYF9-hkvKlRqc",
+            authDomain: "crear-proyecto-3f054.firebaseapp.com",
+            projectId: "crear-proyecto-3f054",
+            storageBucket: "crear-proyecto-3f054.firebasestorage.app",
+            messagingSenderId: "669467686929",
+            appId: "1:669467686929:web:3a8da3af495774f6ae59b0",
+            measurementId: "G-Y65XPHMK5T"
+        };
+
+        // Inicializar Firebase, Analytics y Auth
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+
+        // Estado del formulario: true = Iniciar Sesión, false = Registro
+        let isLoginMode = true;
+
+        // Elementos DOM
+        const authForm = document.getElementById('auth-form');
+        const emailInput = document.getElementById('auth-email');
+        const passwordInput = document.getElementById('auth-password');
+        const errorDiv = document.getElementById('auth-error');
+        const successDiv = document.getElementById('auth-success');
+        const modalTitle = document.getElementById('modal-title');
+        const modalSubtitle = document.getElementById('modal-subtitle');
+        const btnAuthSubmit = document.getElementById('btn-auth-submit');
+        const toggleAuthText = document.getElementById('toggle-auth-text');
+        const btnToggleMode = document.getElementById('btn-toggle-mode');
+
+        const btnOpenLogin = document.getElementById('btn-open-login');
+        const btnLogout = document.getElementById('btn-logout');
+        const userDisplay = document.getElementById('user-display');
+        const btnOpenLoginMobile = document.getElementById('btn-open-login-mobile');
+        const btnLogoutMobile = document.getElementById('btn-logout-mobile');
+
+        // Alternar entre Inicio de Sesión y Registro
+        window.switchAuthMode = function() {
+            isLoginMode = !isLoginMode;
+            hideMessages();
+            if (isLoginMode) {
+                modalTitle.textContent = "¡Bienvenido de nuevo!";
+                modalSubtitle.textContent = "Ingresa con tus credenciales de Firebase Auth.";
+                btnAuthSubmit.querySelector('span').textContent = "Iniciar Sesión";
+                toggleAuthText.textContent = "¿No tienes una cuenta?";
+                btnToggleMode.textContent = "Regístrate gratis";
+            } else {
+                modalTitle.textContent = "Crear una cuenta";
+                modalSubtitle.textContent = "Registra tus credenciales en tu proyecto Firebase.";
+                btnAuthSubmit.querySelector('span').textContent = "Registrarse";
+                toggleAuthText.textContent = "¿Ya tienes una cuenta?";
+                btnToggleMode.textContent = "Inicia sesión";
+            }
+        };
+
+        // Manejar el envío del formulario (Login / Registro)
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            btnAuthSubmit.disabled = true;
+            btnAuthSubmit.classList.add('opacity-75');
+
+            try {
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    showSuccess("¡Sesión iniciada correctamente!");
+                    setTimeout(() => toggleModal('login-modal'), 1200);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    showSuccess("¡Cuenta creada e iniciada con éxito!");
+                    setTimeout(() => toggleModal('login-modal'), 1200);
+                }
+            } catch (error) {
+                showError(translateFirebaseError(error.code));
+            } finally {
+                btnAuthSubmit.disabled = false;
+                btnAuthSubmit.classList.remove('opacity-75');
+            }
+        });
+
+        // Restablecer Contraseña
+        window.resetPasswordFirebase = async function() {
+            hideMessages();
+            const email = emailInput.value;
+            if (!email) {
+                showError("Por favor, ingresa tu correo electrónico en el campo superior.");
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showSuccess("Se ha enviado un correo para restablecer tu contraseña.");
+            } catch (error) {
+                showError(translateFirebaseError(error.code));
+            }
+        };
+
+        // Cerrar Sesión
+        window.logoutFirebase = async function() {
+            try {
+                await signOut(auth);
+                alert("Has cerrado sesión.");
+            } catch (error) {
+                alert("Error al cerrar sesión: " + error.message);
+            }
+        };
+
+        // Escuchar Cambios en el Estado de Autenticación
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuario autenticado
+                btnOpenLogin.classList.add('hidden');
+                btnOpenLoginMobile.classList.add('hidden');
+                
+                btnLogout.classList.remove('hidden');
+                btnLogoutMobile.classList.remove('hidden');
+                userDisplay.classList.remove('hidden');
+                userDisplay.textContent = user.email;
+            } else {
+                // Usuario no autenticado
+                btnOpenLogin.classList.remove('hidden');
+                btnOpenLoginMobile.classList.remove('hidden');
+                
+                btnLogout.classList.add('hidden');
+                btnLogoutMobile.classList.add('hidden');
+                userDisplay.classList.add('hidden');
+                userDisplay.textContent = '';
+            }
+        });
+
+        // Funciones auxiliares UI
+        function showError(msg) {
+            errorDiv.textContent = msg;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showSuccess(msg) {
+            successDiv.textContent = msg;
+            successDiv.classList.remove('hidden');
+        }
+
+        function hideMessages() {
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+        }
+
+        // Traducción de Errores de Firebase Auth
+        function translateFirebaseError(code) {
+            switch (code) {
+                case 'auth/invalid-email':
+                    return 'El correo electrónico proporcionado no es válido.';
+                case 'auth/user-disabled':
+                    return 'Esta cuenta de usuario ha sido deshabilitada.';
+                case 'auth/user-not-found':
+                case 'auth/invalid-credential':
+                    return 'Credenciales incorrectas. Verifique su correo y contraseña.';
+                case 'auth/wrong-password':
+                    return 'Contraseña incorrecta.';
+                case 'auth/email-already-in-use':
+                    return 'El correo electrónico ya está registrado en la plataforma.';
+                case 'auth/weak-password':
+                    return 'La contraseña debe tener al menos 6 caracteres.';
+                case 'auth/network-request-failed':
+                    return 'Error de conexión de red. Inténtalo de nuevo.';
+                default:
+                    return 'Ocurrió un error: ' + code;
+            }
+        }
     </script>
 </body>
 </html>
